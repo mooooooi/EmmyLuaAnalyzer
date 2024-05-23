@@ -1,4 +1,5 @@
 ﻿using EmmyLua.CodeAnalysis.Document;
+using System.Text.RegularExpressions;
 
 namespace EmmyLua.CodeAnalysis.Workspace.Module;
 
@@ -59,7 +60,8 @@ public class ModuleNode
 
     public LuaDocumentId? FindModule(string modulePath)
     {
-        var modulePaths = modulePath.Split('.');
+        var splitReg = new Regex(@"[\./]");
+        var modulePaths = splitReg.Split(modulePath);
         var node = this;
         foreach (var path in modulePaths)
         {
