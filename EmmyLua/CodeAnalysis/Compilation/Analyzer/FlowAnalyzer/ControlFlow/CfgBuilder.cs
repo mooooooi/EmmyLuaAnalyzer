@@ -19,7 +19,7 @@ public class CfgBuilder
         public CfgNode Source { get; } = source;
     }
 
-    private List<GotoNode> _gotoNodes = new();
+    private List<GotoNode> _gotoNodes = [];
 
     public ControlFlowGraph Build(LuaBlockSyntax block)
     {
@@ -307,7 +307,7 @@ public class CfgBuilder
         {
             if (!_scopeLabels.TryAdd(name, labelBlock))
             {
-                labelStat.PushDiagnostic(DiagnosticSeverity.Error, $"Label {name} already defined");
+                // labelStat.PushDiagnostic(DiagnosticSeverity.Error, $"Label {name} already defined");
             }
         }
 

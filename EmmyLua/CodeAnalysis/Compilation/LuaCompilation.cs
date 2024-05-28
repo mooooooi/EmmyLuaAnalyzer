@@ -31,6 +31,8 @@ public class LuaCompilation
 
     public LuaDiagnostics Diagnostics { get; }
 
+    private bool DisableAnalyze { get; set; } = false;
+
     public LuaCompilation(LuaWorkspace workspace)
     {
         Workspace = workspace;
@@ -62,13 +64,13 @@ public class LuaCompilation
             InternalAddSyntaxTree(documentId, syntaxTree);
         }
 
-        Analyze();
+        AnalyzeDirtyDocuments();
     }
 
     public void AddSyntaxTree(LuaDocumentId documentId, LuaSyntaxTree syntaxTree)
     {
         InternalAddSyntaxTree(documentId, syntaxTree);
-        Analyze();
+        AnalyzeDirtyDocuments();
     }
 
     public void RemoveSyntaxTree(LuaDocumentId documentId)
@@ -128,8 +130,13 @@ public class LuaCompilation
         return new SemanticModel(this, document, declarationTree);
     }
 
-    private void Analyze()
+    private void AnalyzeDirtyDocuments()
     {
+        if (DisableAnalyze)
+        {
+            return;
+        }
+
         if (DirtyDocumentIds.Count != 0)
         {
             try
@@ -153,6 +160,7 @@ public class LuaCompilation
 
                 foreach (var document in documents)
                 {
+                    Diagnostics.ClearDiagnostic(document.Id);
                     foreach (var diagnostic in document.SyntaxTree.Diagnostics)
                     {
                         Diagnostics.AddDiagnostic(document.Id, diagnostic);
@@ -178,17 +186,55 @@ public class LuaCompilation
         return DeclarationTrees.GetValueOrDefault(documentId);
     }
 
+    public IEnumerable<Diagnostic> GetAllDiagnosticsParallel()
+    {
+        var result = new List<Diagnostic>();
+        var context =
+            new ThreadLocal<SearchContext>(() => new SearchContext(this, new SearchContextFeatures()));
+        try
+        {
+            var diagnosticResults = Workspace.AllDocuments
+                .AsParallel()
+                .Select(it =>
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    if (Diagnostics.Check(it, context.Value!, out var documentDiagnostics))
+                    {
+                        return documentDiagnostics;
+                    }
+
+                    return [];
+                });
+            foreach (var diagnosticResult in diagnosticResults)
+            {
+                result.AddRange(diagnosticResult);
+            }
+        }
+        finally
+        {
+            context.Dispose();
+        }
+
+        return result;
+    }
+
     public IEnumerable<Diagnostic> GetAllDiagnostics()
     {
         var result = new List<Diagnostic>();
         var context = new SearchContext(this, new SearchContextFeatures());
-        var documents = Workspace.AllDocuments;
-        foreach (var document in documents)
-        {
-            if (Diagnostics.Check(document, context, out var documentDiagnostics))
+        var diagnosticResults = Workspace.AllDocuments
+            .Select(it =>
             {
-                result.AddRange(documentDiagnostics);
-            }
+                if (Diagnostics.Check(it, context, out var documentDiagnostics))
+                {
+                    return documentDiagnostics;
+                }
+
+                return [];
+            });
+        foreach (var diagnosticResult in diagnosticResults)
+        {
+            result.AddRange(diagnosticResult);
         }
 
         return result;
@@ -203,5 +249,20 @@ public class LuaCompilation
         }
 
         return !Diagnostics.Check(document, context, out var results) ? [] : results;
+    }
+
+    public void BulkUpdate(Action action)
+    {
+        try
+        {
+            DisableAnalyze = true;
+            action();
+        }
+        finally
+        {
+            DisableAnalyze = false;
+        }
+
+        AnalyzeDirtyDocuments();
     }
 }

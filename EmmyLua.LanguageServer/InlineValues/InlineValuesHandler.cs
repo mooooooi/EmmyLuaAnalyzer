@@ -1,5 +1,4 @@
 ﻿using EmmyLua.LanguageServer.Server;
-using EmmyLua.LanguageServer.Util;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -16,7 +15,6 @@ public class InlineValuesHandler(ServerContext context): InlineValuesHandlerBase
     {
         return new InlineValueRegistrationOptions
         {
-            DocumentSelector = ToSelector.ToTextDocumentSelector(context.LuaWorkspace)
         };
     }
 
@@ -29,11 +27,11 @@ public class InlineValuesHandler(ServerContext context): InlineValuesHandlerBase
             var semanticModel = context.GetSemanticModel(uri);
             if (semanticModel is not null)
             {
-                var result =  Builder.Build(semanticModel, request.Range, request.Context);
+                var result =  Builder.Build(semanticModel, request.Range, request.Context, cancellationToken);
                 container = new Container<InlineValueBase>(result);
             }
         });
         
-        return Task.FromResult<Container<InlineValueBase>?>(container);
+        return Task.FromResult(container);
     }
 }

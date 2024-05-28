@@ -8,7 +8,17 @@ public class LuaWorkspace
 {
     public string MainWorkspace { get; set; } = string.Empty;
 
-    public LuaFeatures Features { get; set; }
+    private LuaFeatures _features;
+
+    public LuaFeatures Features
+    {
+        get => _features;
+        set
+        {
+            _features = value;
+            ModuleManager.UpdatePattern(_features.RequirePattern);
+        }
+    }
 
     private Dictionary<LuaDocumentId, LuaDocument> Documents { get; set; } = new();
 
@@ -38,7 +48,7 @@ public class LuaWorkspace
 
     public LuaCompilation Compilation { get; }
 
-    public ModuleGraph ModuleGraph { get; }
+    public ModuleManager ModuleManager { get; }
 
     public static LuaWorkspace Create() => Create("", new LuaFeatures());
 
@@ -69,10 +79,10 @@ public class LuaWorkspace
 
     public LuaWorkspace(LuaFeatures features)
     {
-        Features = features;
+        _features = features;
         Compilation = new LuaCompilation(this);
-        ModuleGraph = new ModuleGraph(this);
-        ModuleGraph.UpdatePattern(features.RequirePattern);
+        ModuleManager = new ModuleManager(this);
+        ModuleManager.UpdatePattern(features.RequirePattern);
         if (features.InitStdLib)
         {
             InitStdLib();
@@ -112,14 +122,14 @@ public class LuaWorkspace
         foreach (var thirdPartyRoot in thirdPartyRoots)
         {
             files.AddRange(CollectFiles(thirdPartyRoot));
-            ModuleGraph.AddPackageRoot(thirdPartyRoot);
+            ModuleManager.AddPackageRoot(thirdPartyRoot);
         }
 
         files.AddRange(CollectFiles(workspace));
-        ModuleGraph.AddPackageRoot(workspace);
+        ModuleManager.AddPackageRoot(workspace);
         foreach (var workspaceRoot in Features.WorkspaceRoots)
         {
-            ModuleGraph.AddPackageRoot(workspaceRoot);
+            ModuleManager.AddPackageRoot(workspaceRoot);
         }
 
         var documents =
@@ -142,8 +152,14 @@ public class LuaWorkspace
             PathToDocument[document.Path] = document.Id;
         }
 
-        ModuleGraph.AddDocuments(documents);
-        Compilation.AddSyntaxTrees(documents.AsParallel().Select(it => (it.Id, it.SyntaxTree)));
+        // for parallel
+        var syntaxTrees = documents
+            .AsParallel()
+            .Select(it => (it.Id, it.SyntaxTree))
+            .ToList();
+
+        ModuleManager.AddDocuments(documents);
+        Compilation.AddSyntaxTrees(syntaxTrees);
         Monitor?.OnFinishLoadWorkspace();
     }
 
@@ -153,7 +169,7 @@ public class LuaWorkspace
         var files = CollectFiles(workspace).ToList();
         var documents =
             files.AsParallel().Select(file => LuaDocument.OpenDocument(file, Features.Language)).ToList();
-        ModuleGraph.AddPackageRoot(workspace);
+        ModuleManager.AddPackageRoot(workspace);
         foreach (var document in documents)
         {
             if (!PathToDocument.TryGetValue(document.Path, out var id))
@@ -171,7 +187,7 @@ public class LuaWorkspace
             PathToDocument[document.Path] = document.Id;
         }
 
-        ModuleGraph.AddDocuments(documents);
+        ModuleManager.AddDocuments(documents);
         Compilation.AddSyntaxTrees(documents.Select(it => (it.Id, it.SyntaxTree)));
         Monitor?.OnFinishLoadWorkspace();
     }
@@ -208,7 +224,7 @@ public class LuaWorkspace
         Documents[document.Id] = document;
         UrlToDocument[document.Uri] = document.Id;
         PathToDocument[document.Path] = document.Id;
-        ModuleGraph.AddDocument(document);
+        ModuleManager.AddDocument(document);
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
     }
 
@@ -225,7 +241,7 @@ public class LuaWorkspace
         {
             UrlToDocument.Add(document.Uri, document.Id);
             PathToDocument.Add(document.Path, document.Id);
-            ModuleGraph.AddDocument(document);
+            ModuleManager.AddDocument(document);
         }
 
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
@@ -247,7 +263,7 @@ public class LuaWorkspace
             {
                 UrlToDocument.Remove(document.Uri);
                 PathToDocument.Remove(document.Path);
-                ModuleGraph.RemoveDocument(document);
+                ModuleManager.RemoveDocument(document);
             }
 
             Compilation.RemoveSyntaxTree(id);
@@ -285,7 +301,7 @@ public class LuaWorkspace
             if (document is not null)
             {
                 document.OpenState = OpenState.Closed;
-                if (ModuleGraph.GetWorkspace(document).Length == 0)
+                if (ModuleManager.GetWorkspace(document).Length == 0)
                 {
                     RemoveDocument(id);
                 }

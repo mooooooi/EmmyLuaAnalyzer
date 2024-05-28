@@ -253,6 +253,32 @@
               "null"
             ]
           }
+        },
+        "requirePattern": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "Strict": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "requirePath": {
+          "type": "boolean"
+        },
+        "typeCall": {
+          "type": "boolean"
         }
       }
     },
@@ -332,6 +358,9 @@
     },
     "codeLens": {
       "$ref": "#/definitions/CodeLens"
+    },
+    "strict": {
+      "$ref": "#/definitions/Strict"
     }
   }
 }

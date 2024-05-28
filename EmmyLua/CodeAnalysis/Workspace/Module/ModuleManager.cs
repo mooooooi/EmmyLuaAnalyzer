@@ -3,7 +3,7 @@ using EmmyLua.CodeAnalysis.Document;
 
 namespace EmmyLua.CodeAnalysis.Workspace.Module;
 
-public class ModuleGraph
+public class ModuleManager
 {
     private LuaWorkspace Workspace { get; }
 
@@ -13,11 +13,13 @@ public class ModuleGraph
 
     public Dictionary<string, List<LuaDocumentId>> ModuleNameToDocumentId { get; } = new();
 
-    public HashSet<LuaDocumentId> VirtualDocumentIds { get; } = new();
+    public HashSet<LuaDocumentId> VirtualDocumentIds { get; } = [];
 
-    private List<Regex> Pattern { get; } = new();
+    private List<Regex> Pattern { get; } = [];
 
-    public ModuleGraph(LuaWorkspace luaWorkspace)
+    private LuaFeatures Features => Workspace.Features;
+
+    public ModuleManager(LuaWorkspace luaWorkspace)
     {
         Workspace = luaWorkspace;
         var virtualModule = new ModuleNode();
@@ -66,6 +68,11 @@ public class ModuleGraph
 
     public void AddDocument(ModuleNode root, string workspace, LuaDocument document)
     {
+        if (workspace.Length == 0)
+        {
+            return;
+        }
+
         var documentId = document.Id;
 
         // 取得相对于workspace的路径
@@ -93,7 +100,7 @@ public class ModuleGraph
 
                 if (!ModuleNameToDocumentId.TryGetValue(name, out var documentIds))
                 {
-                    documentIds = new List<LuaDocumentId> { documentId };
+                    documentIds = [documentId];
                     ModuleNameToDocumentId.Add(name, documentIds);
                 }
                 else
@@ -185,7 +192,7 @@ public class ModuleGraph
         DocumentIndex[documentId] = newModuleIndex;
         if (!ModuleNameToDocumentId.TryGetValue(name, out var documentIds))
         {
-            documentIds = new List<LuaDocumentId> { documentId };
+            documentIds = [documentId];
             ModuleNameToDocumentId.Add(name, documentIds);
         }
         else
@@ -211,6 +218,37 @@ public class ModuleGraph
             if (documentId.HasValue)
             {
                 return Workspace.GetDocument(documentId.Value);
+            }
+        }
+
+        if (!Features.RequirePathStrict)
+        {
+            return FuzzyFindModule(modulePath);
+        }
+
+        return null;
+    }
+
+    private LuaDocument? FuzzyFindModule(string modulePath)
+    {
+        var modulePaths = modulePath.Split('.');
+        if (modulePaths.Length == 0)
+        {
+            return null;
+        }
+
+        var lastModulePath = modulePaths[^1];
+        if (ModuleNameToDocumentId.TryGetValue(lastModulePath, out var documentIds))
+        {
+            foreach (var documentId in documentIds)
+            {
+                if (DocumentIndex.TryGetValue(documentId, out var moduleIndex))
+                {
+                    if (moduleIndex.ModulePath.EndsWith(modulePath))
+                    {
+                        return Workspace.GetDocument(documentId);
+                    }
+                }
             }
         }
 

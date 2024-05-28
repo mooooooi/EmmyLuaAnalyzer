@@ -10,11 +10,11 @@ public class LuaFeatures
 
     public DiagnosticConfig DiagnosticConfig { get; set; } = new();
 
-    public List<string> WorkspaceRoots { get; set; } = new();
+    public List<string> WorkspaceRoots { get; set; } = [];
 
-    public List<string> ThirdPartyRoots { get; set; } = new();
+    public List<string> ThirdPartyRoots { get; set; } = [];
 
-    public List<FrameworkVersion> FrameworkVersions { get; set; } = new();
+    public List<FrameworkVersion> FrameworkVersions { get; set; } = [];
 
     public HashSet<string> Extensions { get; set; } = [
         "*.lua"
@@ -24,9 +24,7 @@ public class LuaFeatures
     [
         ".git",
         ".svn",
-        ".idea",
-        ".vs",
-        ".vscode"
+        ".p4",
     ];
 
     public List<string> RequirePattern { get; set; } = [
@@ -38,6 +36,10 @@ public class LuaFeatures
     [
         "require"
     ];
+
+    public bool RequirePathStrict { get; set; } = true;
+
+    public bool TypeCallStrict { get; set; } = true;
 
     public bool InitStdLib { get; set; } = true;
 

@@ -25,8 +25,8 @@ public class LuaParser : IMarkerEventContainer
     public LuaParser(LuaLexer lexer)
     {
         Lexer = lexer;
-        Tokens = new List<LuaTokenData>();
-        Events = new List<MarkEvent>();
+        Tokens = [];
+        Events = [];
         _current = LuaTokenKind.TkEof;
         _tokenIndex = 0;
         _invalid = true;
@@ -101,6 +101,38 @@ public class LuaParser : IMarkerEventContainer
                     {
                         ParseComments(docTokenData);
                         docTokenData.Clear();
+                    }
+                    else if (docTokenData.Count == 1 && index - 2 >= 0)
+                    {
+                        var tempIndex = index - 2;
+                        var inlineComment = false;
+                        for (; tempIndex >= 0; tempIndex--)
+                        {
+                            var kind = Tokens[tempIndex].Kind;
+                            switch (kind)
+                            {
+                                case LuaTokenKind.TkEndOfLine:
+                                {
+                                    goto endLoop;
+                                }
+                                case LuaTokenKind.TkWhitespace:
+                                {
+                                    continue;
+                                }
+                                default:
+                                {
+                                    inlineComment = true;
+                                    goto endLoop;
+                                }
+                            }
+                        }
+                        endLoop:
+
+                        if (inlineComment)
+                        {
+                            ParseComments(docTokenData);
+                            docTokenData.Clear();
+                        }
                     }
 
                     goto case LuaTokenKind.TkWhitespace;

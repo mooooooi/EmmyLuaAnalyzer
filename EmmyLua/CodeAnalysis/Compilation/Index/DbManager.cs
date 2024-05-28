@@ -42,6 +42,8 @@ public class DbManager(LuaCompilation compilation)
 
     private IndexStorage<string, LuaElementPtr<LuaDocNameTypeSyntax>> NameTypesStorage { get; } = new();
 
+    private IndexStorage<string, LuaMethodType> TypeOverloads { get; } = new();
+
     public void Remove(LuaDocumentId documentId)
     {
         MembersStorage.Remove(documentId);
@@ -58,10 +60,34 @@ public class DbManager(LuaCompilation compilation)
         IndexExprsStorage.Remove(documentId);
         NameTypesStorage.Remove(documentId);
         AliasTypesStorage.Remove(documentId);
+        TypeOverloads.Remove(documentId);
     }
+
+    private static HashSet<string> NotMemberNames { get; } =
+    [
+        "unknown",
+        "nil",
+        "boolean",
+        "number",
+        "int",
+        "integer",
+        "function",
+        "thread",
+        "userdata",
+        "any",
+        "void",
+        "never",
+        "self",
+        "T"
+    ];
 
     public void AddMember(LuaDocumentId documentId, string name, LuaDeclaration luaDeclaration)
     {
+        if (NotMemberNames.Contains(name))
+        {
+            return;
+        }
+
         if (name == "global")
         {
             AddGlobal(documentId, luaDeclaration.Name, luaDeclaration);
@@ -151,6 +177,11 @@ public class DbManager(LuaCompilation compilation)
     public void AddTypeOperator(LuaDocumentId documentId, TypeOperator typeOperator)
     {
         TypeOperatorStorage.AddTypeOperator(documentId, typeOperator);
+    }
+
+    public void AddTypeOverload(LuaDocumentId documentId, string name, LuaMethodType methodType)
+    {
+        TypeOverloads.Add(documentId, name, methodType);
     }
 
     public IEnumerable<LuaDeclaration> GetMembers(string name)
@@ -307,5 +338,10 @@ public class DbManager(LuaCompilation compilation)
     public IEnumerable<TypeOperator> GetTypeOperators(string typeName)
     {
         return TypeOperatorStorage.GetTypeOperators(typeName);
+    }
+
+    public IEnumerable<LuaMethodType> GetTypeOverloads(string name)
+    {
+        return TypeOverloads.Get<LuaMethodType>(name);
     }
 }

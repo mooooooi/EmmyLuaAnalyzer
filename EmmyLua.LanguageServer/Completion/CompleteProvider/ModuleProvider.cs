@@ -1,6 +1,4 @@
 ﻿using EmmyLua.CodeAnalysis.Compilation.Semantic;
-using EmmyLua.CodeAnalysis.Compilation.Semantic.Render;
-using EmmyLua.CodeAnalysis.Compilation.Semantic.Render.Renderer;
 using EmmyLua.CodeAnalysis.Compilation.Type;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 using EmmyLua.CodeAnalysis.Util.FilenameConverter;
@@ -30,7 +28,7 @@ public class ModuleProvider : ICompleteProviderBase
         }
 
         var semanticModel = context.SemanticModel;
-        var modules = semanticModel.Compilation.Workspace.ModuleGraph.GetAllModules();
+        var modules = semanticModel.Compilation.Workspace.ModuleManager.GetAllModules();
         var localNames = semanticModel.GetDeclarationsBefore(context.TriggerToken).Select(it => it.Name).ToHashSet();
         foreach (var module in modules)
         {
