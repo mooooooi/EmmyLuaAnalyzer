@@ -3,17 +3,50 @@ using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 
 namespace EmmyLua.CodeAnalysis.Compilation.Declaration;
 
+public class DeclarationNodeContainer(int position)
+    : DeclarationNode(position)
+{
+    public DeclarationNodeContainer? Parent { get; set; }
+
+    public List<DeclarationNode> Children { get; } = [];
+
+    public void Add(DeclarationNode node)
+    {
+        if (node is DeclarationNodeContainer container)
+        {
+            container.Parent = this;
+        }
+
+        // 如果Children为空，直接添加
+        if (Children.Count == 0)
+        {
+            Children.Add(node);
+            return;
+        }
+
+        // 如果Children的最后一个节点的位置小于等于node的位置，直接添加
+        if (Children.Last().Position <= node.Position)
+        {
+            Children.Add(node);
+        }
+        else
+        {
+            var index = Children.FindIndex(n => n.Position > node.Position);
+            // 否则，插入到找到的位置
+            Children.Insert(index, node);
+        }
+    }
+}
+
 public enum ScopeFoundState
 {
     Founded,
     NotFounded,
 }
 
-public class DeclarationScope(LuaDeclarationTree tree, int pos)
+public class DeclarationScope(int pos)
     : DeclarationNodeContainer(pos)
 {
-    public LuaDeclarationTree Tree { get; } = tree;
-
     public DeclarationScope? ParentScope => Parent as DeclarationScope;
 
     public virtual ScopeFoundState WalkOver(Func<LuaDeclaration, ScopeFoundState> process)
@@ -23,18 +56,16 @@ public class DeclarationScope(LuaDeclarationTree tree, int pos)
 
     public virtual void WalkUp(int position, int level, Func<LuaDeclaration, ScopeFoundState> process)
     {
-        var cur = FindLastChild(it => it.Position < position);
-        while (cur != null)
+        var curIndex = Children.FindLastIndex(it => it.Position < position);
+        for(var i = curIndex; i >= 0; i--)
         {
-            switch (cur)
+            if (Children[i] is LuaDeclaration declaration && process(declaration) == ScopeFoundState.Founded)
             {
-                case LuaDeclaration declaration when process(declaration) == ScopeFoundState.Founded:
-                    return;
-                case DeclarationScope scope when scope.WalkOver(process) == ScopeFoundState.Founded:
-                    return;
-                default:
-                    cur = cur.Prev;
-                    break;
+                return;
+            }
+            else if (Children[i] is DeclarationScope scope && scope.WalkOver(process) == ScopeFoundState.Founded)
+            {
+                return;
             }
         }
 
@@ -90,7 +121,7 @@ public class DeclarationScope(LuaDeclarationTree tree, int pos)
     public LuaDeclaration? FindDeclaration(LuaSyntaxElement element)
     {
         var position = element.Position;
-        var symbolNode = FindFirstChild(it => it.Position == position);
+        var symbolNode = Children.FirstOrDefault(it => it.Position == position);
         if (symbolNode is LuaDeclaration result)
         {
             return result;
@@ -138,8 +169,8 @@ public class DeclarationScope(LuaDeclarationTree tree, int pos)
     }
 }
 
-public class LocalStatDeclarationScope(LuaDeclarationTree tree, int pos)
-    : DeclarationScope(tree, pos)
+public class LocalStatDeclarationScope(int pos)
+    : DeclarationScope(pos)
 {
     public override ScopeFoundState WalkOver(Func<LuaDeclaration, ScopeFoundState> process)
     {
@@ -152,8 +183,8 @@ public class LocalStatDeclarationScope(LuaDeclarationTree tree, int pos)
     }
 }
 
-public class RepeatStatDeclarationScope(LuaDeclarationTree tree, int pos)
-    : DeclarationScope(tree, pos)
+public class RepeatStatDeclarationScope(int pos)
+    : DeclarationScope(pos)
 {
     public override void WalkUp(int position, int level, Func<LuaDeclaration, ScopeFoundState> process)
     {
@@ -168,8 +199,8 @@ public class RepeatStatDeclarationScope(LuaDeclarationTree tree, int pos)
     }
 }
 
-public class ForRangeStatDeclarationScope(LuaDeclarationTree tree, int pos)
-    : DeclarationScope(tree, pos)
+public class ForRangeStatDeclarationScope(int pos)
+    : DeclarationScope(pos)
 {
     public override void WalkUp(int position, int level, Func<LuaDeclaration, ScopeFoundState> process)
     {

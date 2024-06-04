@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using EmmyLua.CodeAnalysis.Compilation.Infer;
+using EmmyLua.CodeAnalysis.Compilation.Search;
 using EmmyLua.CodeAnalysis.Compilation.Semantic;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Workspace;
@@ -222,6 +223,7 @@ public class ServerContext(ILanguageServerFacade server)
         }
 
         Monitor.OnFinishDiagnosticCheck();
+        GC.Collect();
     }
 
     private static readonly int DelayLimit = 1024 * 1024;

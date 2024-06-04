@@ -1,4 +1,5 @@
-﻿using EmmyLua.CodeAnalysis.Document;
+﻿using EmmyLua.CodeAnalysis.Compilation.Declaration;
+using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 
 namespace EmmyLua.CodeAnalysis.Compilation.Semantic.Render.Renderer;
@@ -8,16 +9,16 @@ public static class LuaModuleRenderer
     public static void RenderModule(LuaDocument document, LuaRenderContext renderContext)
     {
         var exports = renderContext.SearchContext.Compilation.Db
-            .GetModuleExportExprs(document.Id)
+            .QueryModuleReturns(document.Id)
             .Select(it => it.ToNode(document));
         foreach (var exportElement in exports)
         {
             if (exportElement is LuaNameExprSyntax nameExpr)
             {
                 var declaration =  renderContext.SearchContext.FindDeclaration(nameExpr);
-                if (declaration is not null)
+                if (declaration is LuaDeclaration luaDeclaration)
                 {
-                    LuaCommentRenderer.RenderDeclarationStatComment(declaration, renderContext);
+                    LuaCommentRenderer.RenderDeclarationStatComment(luaDeclaration, renderContext);
                 }
             }
             else
