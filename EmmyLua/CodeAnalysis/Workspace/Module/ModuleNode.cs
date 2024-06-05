@@ -1,5 +1,5 @@
 ﻿using EmmyLua.CodeAnalysis.Document;
-using System.Text.RegularExpressions;
+using System.Buffers;
 
 namespace EmmyLua.CodeAnalysis.Workspace.Module;
 
@@ -9,13 +9,22 @@ public class ModuleNode
 
     public LuaDocumentId? DocumentId { get; private set; }
 
+    private Span<Range> resolveModulePath(ReadOnlySpan<char> modulePath, Span<Range> dest)
+    {
+        var length = modulePath.SplitAny(dest, "/.", StringSplitOptions.RemoveEmptyEntries);
+        return dest.Slice(0, length);
+    }
+
     public void RemoveModule(string modulePath)
     {
-        var modulePaths = modulePath.Split('.');
+        var rangesRawArray = ArrayPool<Range>.Shared.Rent(32);
+        var modulePaths = resolveModulePath(modulePath, rangesRawArray);
+
         var node = this;
         var removeStack = new Stack<(string, ModuleNode)>();
-        foreach (var path in modulePaths)
+        foreach (var range in modulePaths)
         {
+            var path = modulePath[range].ToString();
             if (!node.Children.TryGetValue(path, out var child))
             {
                 return;
@@ -60,11 +69,12 @@ public class ModuleNode
 
     public LuaDocumentId? FindModule(string modulePath)
     {
-        var splitReg = new Regex(@"[\./]");
-        var modulePaths = splitReg.Split(modulePath);
+        var rangesRawArray = ArrayPool<Range>.Shared.Rent(32);
+        var modulePaths = resolveModulePath(modulePath, rangesRawArray);
         var node = this;
-        foreach (var path in modulePaths)
+        foreach (var range in modulePaths)
         {
+            var path = modulePath[range].ToString();
             if (!node.Children.TryGetValue(path, out var child))
             {
                 return null;
@@ -73,6 +83,7 @@ public class ModuleNode
             node = child;
         }
 
+        ArrayPool<Range>.Shared.Return(rangesRawArray);
         return node.DocumentId;
     }
 }
