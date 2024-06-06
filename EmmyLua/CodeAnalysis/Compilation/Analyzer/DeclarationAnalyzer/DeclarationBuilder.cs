@@ -6,7 +6,6 @@ using EmmyLua.CodeAnalysis.Compilation.Reference;
 using EmmyLua.CodeAnalysis.Compilation.Search;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Document.Version;
-using EmmyLua.CodeAnalysis.IndexSystem;
 using EmmyLua.CodeAnalysis.Syntax.Kind;
 using EmmyLua.CodeAnalysis.Syntax.Node;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
@@ -619,6 +618,7 @@ public class DeclarationBuilder : ILuaElementWalker
                                     declaration.Info = info with
                                     {
                                         DeclarationType = definedType,
+                                        TypeDecl = true
                                     };
                                     unResolveDeclaration.IsTypeDeclaration = true;
                                 }
