@@ -35,6 +35,15 @@ public enum DiagnosticCode
     AccessProtectedMember,
     [EnumMember(Value = "access-package-member")]
     AccessPackageMember,
+    [EnumMember(Value = "no-discard")]
+    NoDiscard,
+    [EnumMember(Value = "disable-global-define")]
+    DisableGlobalDefine,
+    [EnumMember(Value = "undefined-field")]
+    UndefinedField,
+    [EnumMember(Value = "local-const-reassign")]
+    LocalConstReassign,
+
 }
 // @formatter:on
 public static class DiagnosticCodeHelper

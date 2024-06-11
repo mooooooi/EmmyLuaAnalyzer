@@ -32,7 +32,7 @@ public class WorkspaceIndex : IQueryableIndex
 
     public Dictionary<LuaDocumentId, List<LuaElementPtr<LuaExprSyntax>>> ModuleReturns { get; } = new();
 
-    private TypeOperatorStorage TypeOperator { get; } = new();
+    private IndexStorage<string, TypeOperator> TypeOperator { get; } = new();
 
     public IndexStorage<string, LuaElementPtr<LuaNameExprSyntax>> NameExpr { get; } = new();
 
@@ -45,6 +45,8 @@ public class WorkspaceIndex : IQueryableIndex
     private InFiledDictionary<SyntaxElementId, List<LuaReference>> InFiledReferences { get; } = new();
 
     private InFiledDictionary<SyntaxElementId, LuaDeclaration> InFiledDeclarations { get; } = new();
+
+    private Dictionary<LuaDocumentId, LuaDeclarationTree> DocumentDeclarationTrees { get; } = new();
 
     public void Remove(LuaDocumentId documentId)
     {
@@ -65,6 +67,7 @@ public class WorkspaceIndex : IQueryableIndex
         TypeOverloads.Remove(documentId);
         InFiledReferences.Remove(documentId);
         InFiledDeclarations.Remove(documentId);
+        DocumentDeclarationTrees.Remove(documentId);
     }
 
     private static HashSet<string> NotMemberNames { get; } =
@@ -109,6 +112,11 @@ public class WorkspaceIndex : IQueryableIndex
 
     public void AddSuper(LuaDocumentId documentId, string name, LuaType type)
     {
+        if (type is LuaNamedType { Name: { } name1 } && !string.Equals(name, name1, StringComparison.CurrentCulture))
+        {
+            return;
+        }
+
         Supers.Add(documentId, name, type);
         if (type is LuaNamedType namedType)
         {
@@ -180,7 +188,7 @@ public class WorkspaceIndex : IQueryableIndex
 
     public void AddTypeOperator(LuaDocumentId documentId, TypeOperator typeOperator)
     {
-        TypeOperator.AddTypeOperator(documentId, typeOperator);
+        TypeOperator.Add(documentId, typeOperator.BelongTypeName, typeOperator);
     }
 
     public void AddTypeOverload(LuaDocumentId documentId, string name, LuaMethodType methodType)
@@ -202,6 +210,11 @@ public class WorkspaceIndex : IQueryableIndex
         }
 
         InFiledDeclarations.Add(documentId, reference.Ptr.UniqueId, declaration);
+    }
+
+    public void AddDeclarationTree(LuaDocumentId documentId, LuaDeclarationTree declarationTree)
+    {
+        DocumentDeclarationTrees[documentId] = declarationTree;
     }
 
     public IEnumerable<IDeclaration> QueryAllGlobal()
@@ -262,7 +275,7 @@ public class WorkspaceIndex : IQueryableIndex
 
     public IEnumerable<TypeOperator> QueryTypeOperators(string name)
     {
-        return TypeOperator.GetTypeOperators(name);
+        return TypeOperator.Query(name);
     }
 
     public IEnumerable<LuaMethodType> QueryTypeOverloads(string name)
@@ -288,6 +301,12 @@ public class WorkspaceIndex : IQueryableIndex
 
     public IEnumerable<LuaDeclaration> QueryDocumentLocalDeclarations(LuaDocumentId documentId)
     {
-        return InFiledDeclarations.QueryAll(documentId);
+        var tree = DocumentDeclarationTrees.GetValueOrDefault(documentId);
+        return tree is not null ? tree.Root.Descendants : [];
+    }
+
+    public LuaDeclarationTree? QueryDeclarationTree(LuaDocumentId documentId)
+    {
+        return DocumentDeclarationTrees.GetValueOrDefault(documentId);
     }
 }
