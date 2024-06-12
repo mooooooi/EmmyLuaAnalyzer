@@ -1,6 +1,6 @@
-﻿namespace EmmyLua.CodeAnalysis.Type;
+﻿namespace EmmyLua.CodeAnalysis.Compilation.Type;
 
-public static class TypeHelper
+public static class TypeExtension
 {
     public static LuaType Union(this LuaType left, LuaType right)
     {
@@ -88,5 +88,11 @@ public static class TypeHelper
             "integer" or "number" or "thread" or "void" or "unknown" or "nil" or "any" => false,
             _ => true,
         };
+    }
+
+    public static bool IsAmbiguous(this LuaType type)
+    {
+        return type is LuaNamedType namedType && namedType.Name.FirstOrDefault() is { } firstChar &&
+               char.IsDigit(firstChar);
     }
 }
