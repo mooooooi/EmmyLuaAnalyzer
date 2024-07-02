@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text;
+using System.Text.RegularExpressions;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Document.Version;
 using EmmyLua.CodeAnalysis.Workspace;
@@ -15,7 +16,7 @@ public class SettingManager
 
     private string SettingPath => Path.Combine(Workspace, ConfigName);
 
-    public Setting? Setting { get; private set; }
+    public Setting Setting { get; private set; } = new();
 
     public delegate void SettingChanged(SettingManager settingManager);
 
@@ -33,6 +34,8 @@ public class SettingManager
     private System.Timers.Timer? _timer;
 
     public HashSet<string> WorkspaceExtensions { get; set; } = new();
+
+    public string WorkspaceEncoding { get; set; } = string.Empty;
 
     private void OnChanged(object sender, FileSystemEventArgs e)
     {
@@ -131,16 +134,27 @@ public class SettingManager
     public LuaFeatures GetLuaFeatures()
     {
         var features = new LuaFeatures();
-        if (Setting is null)
-        {
-            return features;
-        }
-
         var setting = Setting;
         features.ExcludeFolders.UnionWith(setting.Workspace.IgnoreDir);
         features.DontIndexMaxFileSize = setting.Workspace.PreloadFileSize;
         features.ThirdPartyRoots.AddRange(setting.Workspace.Library);
         features.WorkspaceRoots.AddRange(setting.Workspace.WorkspaceRoots);
+        try
+        {
+            if (setting.Workspace.Encoding.Length > 0)
+            {
+                features.Encoding = Encoding.GetEncoding(setting.Workspace.Encoding);
+            }
+            else if (WorkspaceEncoding.Length > 0)
+            {
+                features.Encoding = Encoding.GetEncoding(WorkspaceEncoding);
+            }
+        }
+        catch (Exception)
+        {
+            // ignore
+        }
+
         features.Language = new LuaLanguage(setting.Runtime.Version switch
         {
             LuaVersion.Lua51 => LuaLanguageLevel.Lua51,
@@ -229,5 +243,10 @@ public class SettingManager
 
         var json = JsonConvert.SerializeObject(setting, SerializerSettings);
         File.WriteAllText(SettingPath, json);
+    }
+
+    public static void SupportMultiEncoding()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 }

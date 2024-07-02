@@ -110,6 +110,7 @@ public class SearchContext
 
     public void FindMethodsForType(LuaType type, Action<LuaMethodType> action)
     {
+        type = type.UnwrapType(this);
         switch (type)
         {
             case LuaUnionType unionType:
@@ -161,6 +162,11 @@ public class SearchContext
     public IEnumerable<IDeclaration> GetMembers(LuaType type)
     {
         return Members.GetMembers(type).GroupBy(m => m.Name).Select(g => g.First());
+    }
+
+    public IEnumerable<IDeclaration> GetSuperMembers(LuaType type)
+    {
+        return Members.GetSupersMembers(type).GroupBy(m => m.Name).Select(g => g.First());
     }
 
     public IEnumerable<IDeclaration> FindMember(LuaType type, string name)
