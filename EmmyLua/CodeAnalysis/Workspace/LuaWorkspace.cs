@@ -1,8 +1,8 @@
-﻿using System.Text;
-using EmmyLua.CodeAnalysis.Common;
+﻿using EmmyLua.CodeAnalysis.Common;
 using EmmyLua.CodeAnalysis.Compilation;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Workspace.Module;
+using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace EmmyLua.CodeAnalysis.Workspace;
 
@@ -19,6 +19,7 @@ public class LuaWorkspace
         {
             _features = value;
             ModuleManager.UpdatePattern(_features.RequirePattern);
+            InitExcludeFolders();
         }
     }
 
@@ -45,6 +46,10 @@ public class LuaWorkspace
     public IEnumerable<LuaDocument> AllDocuments => Documents.Values;
 
     private int _idCounter = 1;
+
+    private Matcher ExcludeMatcher { get; set; } = null!;
+
+    private List<string> ExcludeFolders { get; set; } = new();
 
     public LuaWorkspaceMonitor? Monitor { get; set; }
 
@@ -85,6 +90,7 @@ public class LuaWorkspace
         Compilation = new LuaCompilation(this);
         ModuleManager = new ModuleManager(this);
         ModuleManager.UpdatePattern(features.RequirePattern);
+        InitExcludeFolders();
         if (features.InitStdLib)
         {
             InitStdLib();
@@ -94,24 +100,49 @@ public class LuaWorkspace
     public void InitStdLib()
     {
         var stdLib = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "std");
-        LoadWorkspace(stdLib);
+        LoadWorkspace(stdLib, false);
     }
 
-    private IEnumerable<string> CollectFiles(string directory)
+    private IEnumerable<string> CollectFiles(string directory, bool useIgnore = true)
     {
         if (!Directory.Exists(directory))
         {
             return Array.Empty<string>();
         }
 
-        var excludeFolders = Features.ExcludeFolders
-            .Select(it => Path.Combine(directory, it.Trim('\\', '/')))
-            .Select(Path.GetFullPath)
+        var matcher = new Matcher();
+        matcher.AddIncludePatterns(Features.Includes);
+        if (useIgnore)
+        {
+            matcher.AddExcludePatterns(Features.ExcludeGlobs);
+            matcher.AddExcludePatterns(Features.ExcludeFolders);
+        }
+
+        var files = matcher.GetResultsInFullPath(directory);
+        return files;
+    }
+
+    private void InitExcludeFolders()
+    {
+        ExcludeFolders = Features.ExcludeFolders
+            .Select(it => Path.GetFullPath(Path.Combine(it, "**/*")))
             .ToList();
-        return Features.Extensions
-            .SelectMany(it => Directory.GetFiles(directory, it, SearchOption.AllDirectories))
-            .Select(Path.GetFullPath)
-            .Where(file => !excludeFolders.Any(filter => file.StartsWith(filter, StringComparison.OrdinalIgnoreCase)));
+
+        ExcludeMatcher = new Matcher();
+        ExcludeMatcher.AddIncludePatterns(Features.Includes);
+        ExcludeMatcher.AddExcludePatterns(Features.ExcludeGlobs);
+        ExcludeMatcher.AddExcludePatterns(Features.ExcludeFolders);
+    }
+
+    public bool IsExclude(string path)
+    {
+        if (MainWorkspace.Length == 0)
+        {
+            return false;
+        }
+
+        var relativePath = Path.GetRelativePath(MainWorkspace, path);
+        return !ExcludeMatcher.Match(MainWorkspace, relativePath).HasMatches;
     }
 
     /// this will load all third libraries and workspace files
@@ -166,10 +197,10 @@ public class LuaWorkspace
         Monitor?.OnFinishLoadWorkspace();
     }
 
-    public void LoadWorkspace(string workspace)
+    public void LoadWorkspace(string workspace, bool externalWorkspace = true)
     {
         Monitor?.OnStartLoadWorkspace();
-        var files = CollectFiles(workspace).ToList();
+        var files = CollectFiles(workspace, externalWorkspace).ToList();
         var documents =
             files.AsParallel().Select(file => LuaDocument.OpenDocument(file, Features.Language)).ToList();
         ModuleManager.AddPackageRoot(workspace);
@@ -292,6 +323,12 @@ public class LuaWorkspace
         }
         else
         {
+            var path = new Uri(uri).LocalPath;
+            if (IsExclude(path))
+            {
+                return;
+            }
+
             AddDocumentByUri(uri, text);
         }
     }

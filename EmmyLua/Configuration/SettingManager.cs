@@ -1,9 +1,12 @@
 ﻿using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using EmmyLua.CodeAnalysis.Diagnostics;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Document.Version;
 using EmmyLua.CodeAnalysis.Workspace;
-using Newtonsoft.Json;
+using EmmyLua.CodeAnalysis.Workspace.Module.FilenameConverter;
 
 
 namespace EmmyLua.Configuration;
@@ -24,9 +27,16 @@ public class SettingManager
 
     private bool _firstLoad = true;
 
-    private JsonSerializerSettings SerializerSettings { get; } = new()
+    private JsonSerializerOptions SerializerSettings { get; } = new()
     {
-        Formatting = Formatting.Indented
+        TypeInfoResolver = SettingGenerateContext.Default,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {
+            new JsonStringEnumConverter<DiagnosticCode>(JsonNamingPolicy.KebabCaseLower),
+            new JsonStringEnumConverter<DiagnosticSeverity>(JsonNamingPolicy.KebabCaseLower),
+            new JsonStringEnumConverter<FilenameConvention>(JsonNamingPolicy.KebabCaseLower),
+        }
     };
 
     private FileSystemWatcher? Watcher { get; set; }
@@ -81,7 +91,7 @@ public class SettingManager
 
             var fileText = File.ReadAllText(settingPath);
             // ReSharper disable once IdentifierTypo
-            var setting = JsonConvert.DeserializeObject<Setting>(fileText, SerializerSettings);
+            var setting = JsonSerializer.Deserialize<Setting>(fileText, SerializerSettings);
             if (setting is not null)
             {
                 Setting = setting;
@@ -97,7 +107,7 @@ public class SettingManager
         }
         catch (Exception e)
         {
-            // ignore
+            Console.Error.WriteLine(e);
         }
     }
 
@@ -135,7 +145,8 @@ public class SettingManager
     {
         var features = new LuaFeatures();
         var setting = Setting;
-        features.ExcludeFolders.UnionWith(setting.Workspace.IgnoreDir);
+        features.ExcludeFolders.UnionWith(setting.Workspace.IgnoreDir.Select(it => it.TrimStart('\\', '/')));
+        features.ExcludeGlobs.UnionWith(setting.Workspace.IgnoreGlobs.Select(it => it.TrimStart('\\', '/')));
         features.DontIndexMaxFileSize = setting.Workspace.PreloadFileSize;
         features.ThirdPartyRoots.AddRange(setting.Workspace.Library);
         features.WorkspaceRoots.AddRange(setting.Workspace.WorkspaceRoots);
@@ -199,15 +210,15 @@ public class SettingManager
         {
             if (extension.StartsWith('.'))
             {
-                features.Extensions.Add($"*{extension}");
+                features.Includes.Add($"**/*{extension}");
             }
             else if (extension.StartsWith("*."))
             {
-                features.Extensions.Add(extension);
+                features.Includes.Add($"**/{extension}");
             }
             else
             {
-                features.Extensions.Add($"*.{extension}");
+                features.Includes.Add($"**/*.{extension}");
             }
         }
 
@@ -217,10 +228,10 @@ public class SettingManager
             features.RequirePattern.AddRange(setting.Runtime.RequirePattern);
         }
 
-        foreach (var extension in features.Extensions)
+        foreach (var extension in features.Includes)
         {
             var hashSet = features.RequirePattern.ToHashSet();
-            var newPattern = extension.Replace("*", "?");
+            var newPattern = extension.Replace("**/*", "?");
             if (!hashSet.Contains(newPattern))
             {
                 features.RequirePattern.Add(newPattern);
@@ -235,13 +246,7 @@ public class SettingManager
 
     public void Save(Setting setting)
     {
-        if (setting.Schema is null)
-        {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "schema.json");
-            setting.Schema = (new Uri(path)).AbsoluteUri;
-        }
-
-        var json = JsonConvert.SerializeObject(setting, SerializerSettings);
+        var json = JsonSerializer.Serialize(setting, SerializerSettings);
         File.WriteAllText(SettingPath, json);
     }
 

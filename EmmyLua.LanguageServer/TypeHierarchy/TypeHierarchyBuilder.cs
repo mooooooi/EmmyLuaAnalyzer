@@ -4,8 +4,10 @@ using EmmyLua.CodeAnalysis.Compilation.Semantic;
 using EmmyLua.CodeAnalysis.Compilation.Type;
 using EmmyLua.CodeAnalysis.Syntax.Node;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
+using EmmyLua.LanguageServer.Framework.Protocol.Message.DocumentSymbol;
+using EmmyLua.LanguageServer.Framework.Protocol.Message.TypeHierarchy;
 using EmmyLua.LanguageServer.Util;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 
 namespace EmmyLua.LanguageServer.TypeHierarchy;
 

@@ -17,9 +17,9 @@ public class LuaFeatures
 
     public List<FrameworkVersion> FrameworkVersions { get; set; } = [];
 
-    public HashSet<string> Extensions { get; set; } =
+    public HashSet<string> Includes { get; set; } =
     [
-        "*.lua"
+        "**/*.lua"
     ];
 
     public HashSet<string> ExcludeFolders { get; set; } =
@@ -28,6 +28,8 @@ public class LuaFeatures
         ".svn",
         ".p4",
     ];
+
+    public HashSet<string> ExcludeGlobs { get; set; } = [];
 
     public List<string> RequirePattern { get; set; } =
     [

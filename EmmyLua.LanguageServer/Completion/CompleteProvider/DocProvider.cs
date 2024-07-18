@@ -2,7 +2,7 @@
 using EmmyLua.CodeAnalysis.Compilation.Type;
 using EmmyLua.CodeAnalysis.Syntax.Kind;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using EmmyLua.LanguageServer.Framework.Protocol.Message.Completion;
 
 namespace EmmyLua.LanguageServer.Completion.CompleteProvider;
 
@@ -12,7 +12,7 @@ public class DocProvider : ICompleteProviderBase
     [
         "class", "enum", "interface", "alias", "module", "field", "param", "return", "see", "deprecated",
         "type", "overload", "generic", "async", "cast", "private", "protected", "public", "operator",
-        "meta", "version", "as", "nodiscard", "diagnostic", // "package",
+        "meta", "version", "as", "nodiscard", "diagnostic", "mapping",// "package",
     ];
 
     private List<string> Actions { get; } = ["disable-next-line", "disable", "enable"];

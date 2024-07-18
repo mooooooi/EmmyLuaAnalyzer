@@ -23,11 +23,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
+        pre-release: true
     - name: Build
-      run: dotnet publish EmmyLua.LanguageServer -r ${{ matrix.target }} -c Release -o ${{ github.workspace }}/artifact/${{ matrix.platform }} --sc
+      run: dotnet publish EmmyLua.LanguageServer -r ${{ matrix.target }} -c Release -o ${{ github.workspace }}/artifact/${{ matrix.platform }} --sc /p:DebugType=None
     - name: Upload
       uses: actions/upload-artifact@v3
       with: 
